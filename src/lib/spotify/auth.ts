@@ -1,19 +1,9 @@
-import { SCOPES, SPOTIFY_AUTH_URL, CLIENT_ID_KEY } from './config';
+import { SCOPES, SPOTIFY_AUTH_URL, CLIENT_ID } from './config';
 import { generatePKCE } from './pkce';
 import type { TokenResponse } from './types';
 
 const TOKEN_KEY = 'spotify_access_token';
 const VERIFIER_KEY = 'spotify_pkce_verifier';
-
-// ── Client ID ──────────────────────────────────────────────
-
-export function getClientId(): string | null {
-  return localStorage.getItem(CLIENT_ID_KEY);
-}
-
-export function setClientId(id: string): void {
-  localStorage.setItem(CLIENT_ID_KEY, id);
-}
 
 // ── Redirect URI ───────────────────────────────────────────
 
@@ -27,16 +17,15 @@ export function getRedirectUri(): string {
 // ── Login / PKCE Flow ──────────────────────────────────────
 
 export async function initiateLogin(): Promise<void> {
-  const clientId = getClientId();
-  if (!clientId) {
-    throw new Error('Spotify Client ID not set. Call setClientId() first.');
+  if (!CLIENT_ID) {
+    throw new Error('NEXT_PUBLIC_SPOTIFY_CLIENT_ID is not configured.');
   }
 
   const { verifier, challenge } = await generatePKCE();
   sessionStorage.setItem(VERIFIER_KEY, verifier);
 
   const params = new URLSearchParams({
-    client_id: clientId,
+    client_id: CLIENT_ID,
     response_type: 'code',
     redirect_uri: getRedirectUri(),
     scope: SCOPES,
@@ -57,7 +46,7 @@ export async function exchangeCode(code: string): Promise<TokenResponse> {
       code,
       redirect_uri: getRedirectUri(),
       code_verifier: sessionStorage.getItem(VERIFIER_KEY),
-      client_id: getClientId(),
+      client_id: CLIENT_ID,
     }),
   });
 
@@ -67,10 +56,7 @@ export async function exchangeCode(code: string): Promise<TokenResponse> {
   }
 
   const data: TokenResponse = await response.json();
-
-  // Clean up verifier after successful exchange
   sessionStorage.removeItem(VERIFIER_KEY);
-
   return data;
 }
 
@@ -89,7 +75,6 @@ export function setToken(token: string): void {
 export function logout(): void {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(VERIFIER_KEY);
-  localStorage.removeItem(CLIENT_ID_KEY);
 }
 
 export function isAuthenticated(): boolean {

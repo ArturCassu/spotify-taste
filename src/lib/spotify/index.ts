@@ -25,7 +25,7 @@ export {
   SPOTIFY_AUTH_URL,
   SPOTIFY_TOKEN_URL,
   SPOTIFY_API_BASE,
-  CLIENT_ID_KEY,
+  CLIENT_ID,
 } from './config';
 
 // ── PKCE ───────────────────────────────────────────────────
@@ -33,8 +33,6 @@ export { generateRandom, generatePKCE } from './pkce';
 
 // ── Auth ───────────────────────────────────────────────────
 export {
-  getClientId,
-  setClientId,
   getRedirectUri,
   initiateLogin,
   exchangeCode,
