@@ -19,6 +19,12 @@ export async function fetchApi<T>(path: string, token: string): Promise<T> {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Token expired — clear session and redirect to login
+      sessionStorage.clear();
+      window.location.href = '/';
+      throw new Error('Token expirado. Redirecionando para login...');
+    }
     const error = await response.text();
     throw new Error(`Spotify API error (${response.status}): ${error}`);
   }
@@ -109,23 +115,27 @@ export async function fetchAllData(token: string): Promise<SpotifyData> {
     getRecentlyPlayed(token),
   ]);
 
-  // Collect unique track IDs across all time ranges for audio features
-  const allTracks = [
-    ...tracksShort.items,
-    ...tracksMedium.items,
-    ...tracksLong.items,
-  ];
-  const uniqueIds = [...new Set(allTracks.map((t) => t.id))];
+  // Audio features — may fail with 403 on newer Spotify apps (deprecated endpoint)
+  let audioFeatures: SpotifyData['audioFeatures'] = [];
+  try {
+    const allTracks = [
+      ...tracksShort.items,
+      ...tracksMedium.items,
+      ...tracksLong.items,
+    ];
+    const uniqueIds = [...new Set(allTracks.map((t) => t.id))];
 
-  // Fetch audio features in chunks of 100
-  const featureChunks: Promise<SpotifyAudioFeatures>[] = [];
-  for (let i = 0; i < uniqueIds.length; i += 100) {
-    featureChunks.push(getAudioFeatures(token, uniqueIds.slice(i, i + 100)));
+    const featureChunks: Promise<SpotifyAudioFeatures>[] = [];
+    for (let i = 0; i < uniqueIds.length; i += 100) {
+      featureChunks.push(getAudioFeatures(token, uniqueIds.slice(i, i + 100)));
+    }
+    const featureResults = await Promise.all(featureChunks);
+    audioFeatures = featureResults.flatMap((r) =>
+      r.audio_features.filter(Boolean),
+    );
+  } catch (err) {
+    console.warn('Audio features unavailable (endpoint may be deprecated):', err);
   }
-  const featureResults = await Promise.all(featureChunks);
-  const audioFeatures = featureResults.flatMap((r) =>
-    r.audio_features.filter(Boolean),
-  );
 
   return {
     profile,
